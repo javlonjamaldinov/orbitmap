@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
@@ -23,7 +24,56 @@ class _MapScreenState extends State<MapScreen> {
   bool _isDragging = false;
   final TextEditingController _searchController = TextEditingController();
   List<dynamic> _searchResults = [];
-  bool _isSearching = false; // Уберите final здесь
+  bool _isSearching = false;
+
+  @override
+  void initState() {
+    super.initState();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    _searchController.addListener(() {
+      _searchPlaces(_searchController.text);
+    });
+    _checkLocationServices();
+  }
+
+  // Функция для проверки включения служб геолокации и запроса их включения
+  void _checkLocationServices() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+  
+    if (!serviceEnabled) {
+      await _promptEnableLocation();
+    } else {
+      _showCurrentLocation();
+    }
+  }
+
+  Future<void> _promptEnableLocation() async {
+    bool? enableLocation = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Включить геолокацию?"),
+        content: Text("Приложение требует включения службы геолокации."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text("Отклонить"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text("ОК"),
+          ),
+        ],
+      ),
+    );
+
+    if (enableLocation == true) {
+      Geolocator.openLocationSettings().then((value) {
+        if (value == true) {
+          _showCurrentLocation();
+        }
+      });
+    }
+  }
 
   // Определение функции для получения текущей позиции
   Future<Position> _determinePosition() async {
@@ -83,7 +133,6 @@ class _MapScreenState extends State<MapScreen> {
           height: 80,
           child: GestureDetector(
             onTap: () => _showMarkerInfo(markerData),
-           
             child: Column(
               children: [
                 Container(
@@ -216,14 +265,6 @@ class _MapScreenState extends State<MapScreen> {
       _searchResults = [];
       _isSearching = false;
       _searchController.clear();
-    });
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _searchController.addListener(() {
-      _searchPlaces(_searchController.text);
     });
   }
 
